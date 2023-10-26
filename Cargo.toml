@@ -9,3 +9,5 @@ edition = "2021"
 config = { version = "0.13.3", default-features = false, features = ["yaml"] }
 serde = { version = "1.0.190", features = ["derive"] }
 tokio = { version = "1.33.0", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
