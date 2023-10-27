@@ -1,35 +1,23 @@
-use tracing_subscriber::{
-    self,
-    filter::EnvFilter,
-    filter::LevelFilter,
-    fmt::layer,
-    prelude::__tracing_subscriber_SubscriberExt,
-    util::SubscriberInitExt,
-};
-use axum::{
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
+use sqlx::postgres::PgPoolOptions;
 use tracing::info;
 
-use smart_recipe_api::configuration;
+use smart_recipe_api::{configuration, telemetry};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let env_filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
-        .from_env_lossy();
-
-    tracing_subscriber::registry()
-        .with(layer())
-        .with(env_filter)
-        .init();
+    telemetry::init_tracing();
 
     let config = configuration::get_configuration()?;
-    let base_url = format!("{}:{}", config.application.host, config.application.port);
+
+    let pool = PgPoolOptions::new()
+        .connect_with(config.database.get_db())
+        .await?;
+    sqlx::migrate!().run(&pool).await?;
 
     let app = Router::new().route("/health", get(health_check));
 
+    let base_url = format!("{}:{}", &config.application.host, &config.application.port);
     axum::Server::bind(&base_url.parse().unwrap())
         .serve(app.into_make_service())
         .await
@@ -39,4 +27,6 @@ async fn main() -> anyhow::Result<()> {
 }
 
 #[tracing::instrument]
-async fn health_check() { info!("health ok"); }
+async fn health_check() {
+    info!("health ok");
+}
